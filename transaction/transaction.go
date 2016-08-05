@@ -1,6 +1,7 @@
 package transaction
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -9,39 +10,74 @@ import (
 // Transaction represents a Dredd transaction object.
 // http://dredd.readthedocs.io/en/latest/data-structures/#transaction
 type Transaction struct {
-	Id       string `json:"id,omitempty"`
-	Name     string `json:"name,omitempty"`
-	Host     string `json:"host,omitempty"`
-	Port     string `json:"port,omitempty"`
-	Protocol string `json:"protocol,omitempty"`
-	FullPath string `json:"fullPath,omitempty"`
-	Request  *struct {
-		Body    string  `json:"body,omitempty"`
-		Headers Headers `json:"headers,omitempty"`
-		URI     string  `json:"uri,omitempty"`
-		Method  string  `json:"method,omitempty"`
-	} `json:"request,omitempty"`
-	Expected *struct {
-		StatusCode string                 `json:"statusCode,omitempty"`
-		Body       string                 `json:"body,omitempty"`
-		Headers    map[string]interface{} `json:"headers,omitempty"`
-		Schema     *json.RawMessage       `json:"bodySchema,omitempty"`
-	} `json:"expected,omitempty"`
-	Real     *struct {
-		Body       string  `json:"body"`
-		Headers    Headers `json:"headers"`
-		StatusCode int     `json:"statusCode"`
-	} `json:"real,omitempty"`
-	Origin  *json.RawMessage `json:"origin,omitempty"`
-	Test    *json.RawMessage `json:"test,omitempty"`
-	Results *json.RawMessage `json:"results,omitempty"`
-	Skip    bool             `json:"skip"`
-	Fail    interface{}      `json:"fail,omitempty"`
+	Name     string           `json:"name,omitempty"`
+	Host     string           `json:"host,omitempty"`
+	Port     string           `json:"port,omitempty"`
+	Protocol string           `json:"protocol,omitempty"`
+	FullPath string           `json:"fullPath,omitempty"`
+	Request  *Request         `json:"request,omitempty"`
+	Expected *json.RawMessage `json:"expected,omitempty"`
+	Real     *RealRequest     `json:"real,omitempty"`
+	Origin   *json.RawMessage `json:"origin,omitempty"`
+	Test     *json.RawMessage `json:"test,omitempty"`
+	Results  *json.RawMessage `json:"results,omitempty"`
+	Skip     bool             `json:"skip,omitempty"`
+	Fail     interface{}      `json:"fail,omitempty"`
 
 	TestOrder []string `json:"hooks_modifications,omitempty"`
 }
 
+type Request struct {
+	Body    string  `json:"body,omitempty"`
+	Headers Headers `json:"headers,omitempty"`
+	URI     string  `json:"uri,omitempty"`
+	Method  string  `json:"method,omitempty"`
+}
+
+type RealRequest struct {
+	Body       string  `json:"body"`
+	Headers    Headers `json:"headers"`
+	StatusCode int     `json:"statusCode"`
+}
+
 type Headers map[string][]string
+
+func (hdrs *Headers) MarshalJSON() ([]byte, error) {
+	buf := bytes.Buffer{}
+	buf.WriteByte('{')
+
+	first := true
+	for k, v := range *hdrs {
+		if first {
+			first = false
+		} else {
+			buf.WriteString(",")
+		}
+		numValues := len(v)
+		writeJSONKeyToBuffer(&buf, string(k))
+		if numValues == 1 {
+			writeJSONValueToBuffer(&buf, v[0])
+			continue
+		}
+		data, err := json.Marshal(v)
+
+		if err != nil {
+			return nil, err
+		}
+		buf.WriteString(string(data))
+	}
+	buf.WriteByte('}')
+	return buf.Bytes(), nil
+}
+
+func writeJSONKeyToBuffer(buf *bytes.Buffer, key string) {
+	writeJSONValueToBuffer(buf, key)
+	buf.WriteByte(':')
+}
+
+func writeJSONValueToBuffer(buf *bytes.Buffer, key string) {
+	buf.WriteString(`"` + key + `"`)
+}
 
 func (hdrs *Headers) UnmarshalJSON(data []byte) error {
 	var headers = make(map[string]interface{})

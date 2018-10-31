@@ -3,11 +3,13 @@ package goodman
 import (
 	"fmt"
 	"net/rpc"
+	"encoding/gob"
 
 	"github.com/snikch/goodman/transaction"
 )
 
 func NewRunner(rpcService string, port int) (*Run, error) {
+	gob.Register([]interface{}{})
 	client, err := rpc.DialHTTPPath("tcp", fmt.Sprintf(":%d", port), "/")
 
 	if err != nil {
